@@ -1,0 +1,25 @@
+{
+  "name": "@webship/workspace-hosting",
+  "version": "1.0.0",
+  "description": "The hosting family's shared base for Webship Workspace plugins: the HostingProvider contract, and the row menu, environments modal, get-database-and-files flow, live-site chip, actions and New-folder section every hosting plugin registers through registerHosting(api, provider).",
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
+  "private": true,
+  "license": "ISC",
+  "repository": "github:webship/workspace-hosting",
+  "files": ["dist/src", "README.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepare": "npm run build",
+    "test": "npm run build && node --test dist/tests/*.test.js",
+    "lint": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@webship/workspace-plugin-api": "github:webship/workspace-plugin-api#1.0.x",
+    "typescript": "^5.9.0"
+  },
+  "peerDependencies": {
+    "@webship/workspace-plugin-api": "*"
+  }
+}
