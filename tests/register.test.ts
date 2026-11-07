@@ -153,3 +153,14 @@ test('the New-folder section links by id, creates with AI, and refuses a bad id'
   assert.match(s.problem('dev', { acme: 'link', acme_id: 'BAD' }, ctx), /8 to 20 lowercase/);
   assert.strictEqual(s.problem('dev', {}, ctx), '');
 });
+
+test('findCli looks in the host mount, ~/.local/bin and PATH; configured() refuses the placeholder', () => {
+  const { findCli, configured } = require('../src/cli');
+  assert.ok(findCli('sh'), 'sh is on PATH');
+  assert.strictEqual(findCli('no-such-cli-xyz'), null);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cli-'));
+  fs.writeFileSync(path.join(dir, 'acme'), '#!/bin/sh\n', { mode: 0o755 });
+  assert.strictEqual(findCli('acme', [path.join(dir, 'acme')]), path.join(dir, 'acme'));
+  assert.strictEqual(configured('CHANGE_ME'), null);
+  assert.strictEqual(configured(' tok '), 'tok');
+});

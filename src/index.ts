@@ -14,6 +14,7 @@ import type { ActionContext, FolderSetupContext, Form, PluginApi, RowContext } f
 import type { EnvInfo, HostingLink, HostingProvider } from './provider';
 
 export * from './provider';
+export * from './cli';
 
 const registeredCss = new WeakSet<object>();
 
