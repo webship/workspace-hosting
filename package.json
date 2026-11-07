@@ -7,7 +7,7 @@
   "private": true,
   "license": "ISC",
   "repository": "github:webship/workspace-hosting",
-  "files": ["dist/src", "README.md"],
+  "files": ["dist/src", "css", "README.md"],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "prepare": "npm run build",

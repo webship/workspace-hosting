@@ -15,6 +15,8 @@ import type { EnvInfo, HostingLink, HostingProvider } from './provider';
 
 export * from './provider';
 
+const registeredCss = new WeakSet<object>();
+
 export function registerHosting(api: PluginApi, p: HostingProvider): void {
   const { esc, workspaceDir, listProjects, isValidWorkspace, screenAction, iconHtml, NAME_RE, ROOT, run, startInScreen, screenStartedHtml, cliError, commandBlock } = api.lib;
   const post = (name: string) => `/actions/p/${api.name}/${name}`;
@@ -22,6 +24,12 @@ export function registerHosting(api: PluginApi, p: HostingProvider): void {
   const typeAction = p.typeAction || p.id;
   const can = (allowed: Set<string>, dir: string) => allowed.has(typeAction) && fs.existsSync(path.join(dir, p.script));
   const shq = (v: unknown) => `'${String(v).replace(/'/g, `'\\''`)}'`;
+
+  // The family's stylesheet, once however many providers register.
+  if (typeof api.addCss === 'function' && !registeredCss.has(api.addCss)) {
+    registeredCss.add(api.addCss);
+    api.addCss(path.join(__dirname, '..', '..', 'css', 'hosting.css'));
+  }
 
   // A page of thirty rows must not stat the same files thirty times: the link is memoised briefly.
   let cache = new Map<string, HostingLink | null>();

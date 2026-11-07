@@ -1,0 +1,24 @@
+/* The hosting family: the per-provider menu, the live-site chip and the New-folder option.
+   Appended to the dashboard stylesheet after the components, so it may only ADD rules.
+   Every hosting plugin gets these through registerHosting(); a provider's own file adds to them. */
+
+/* The project id and the environment list are lowercase and case-sensitive: shown uppercase they
+   cannot be read off the screen and used, so they opt out of the header styling. */
+.hosting-mismatch { text-transform: none; font-family: var(--font-code); font-size: 0.72rem; }
+.hosting-menu-id { text-transform: none; font-family: var(--font-code); }
+.hosting-menu-note { text-transform: none; font-weight: 400; opacity: .75; white-space: normal; }
+/* The link command carries a project name, so it is long: it wraps rather than widening the menu. */
+.hosting-menu-note code { white-space: normal; overflow-wrap: anywhere; }
+
+/* An unlinked project still shows the menu (the command is there), quieter than a linked one, so a
+   row of thirty unlinked projects does not read as thirty cloud deployments. */
+.hosting-unlinked { opacity: .75; }
+.hosting-unlinked:hover { opacity: 1; }
+
+/* The live-site chip on the card. */
+.pcard-meta .proj-hosting-link { max-width: 11rem; }
+.proj-hosting-link { white-space: nowrap; }
+
+/* New folder: the project id field shows only when "Link to an existing project" is chosen. */
+.folder-new-form .folder-hosting-id { display: none; }
+.folder-new-form .folder-hosting:has(input[value="link"]:checked) .folder-hosting-id { display: block; }

@@ -8,7 +8,7 @@ import { registerHosting } from '../src/index';
 import type { HostingProvider } from '../src/index';
 
 function fakeApi(root: string) {
-  const calls: Record<string, any> = { rowMenus: {}, chips: [], actions: {}, fragments: [], pages: [], setups: [] };
+  const calls: Record<string, any> = { rowMenus: {}, chips: [], actions: {}, fragments: [], pages: [], setups: [], css: [] as string[] };
   const api: any = {
     name: 'acme',
     config: {},
@@ -34,6 +34,7 @@ function fakeApi(root: string) {
     addFragment: (fn: any) => calls.fragments.push(fn),
     addPage: (re: RegExp, fn: any) => calls.pages.push({ re, fn }),
     addFolderSetup: (s: any) => calls.setups.push(s),
+    addCss: (f: string) => calls.css.push(f),
   };
   return { api, calls };
 }
@@ -73,6 +74,7 @@ test('the provider gets the whole surface: menu slot, chip, actions, fragment, p
   assert.strictEqual(calls.fragments.length, 1);
   assert.ok(calls.pages[0].re.test('/acme-site/dev/site1'));
   assert.strictEqual(calls.setups.length, 1);
+  assert.ok(calls.css[0].endsWith('/css/hosting.css') && fs.existsSync(calls.css[0]), 'the family stylesheet is registered and ships');
 });
 
 test('an unlinked project gets the menu with the link step; a linked one gets environments, tools, pull and the console', () => {
