@@ -1,11 +1,11 @@
-# @webship/workspace-hosting
+# @webship.co/workspace-hosting
 
 The hosting family's shared base for [Webship Workspace](https://github.com/webship/workspace)
-plugins. A hosting plugin (`@webship/workspace-upsun`, `-cpanel`, `-digitalocean`, `-aws`, `-azure`,
+plugins. A hosting plugin (`@webship.co/workspace-upsun`, `-cpanel`, `-digitalocean`, `-aws`, `-azure`,
 `-acquia`, `-godaddy`) is one call plus its provider:
 
 ```ts
-import { registerHosting } from '@webship/workspace-hosting';
+import { registerHosting } from '@webship.co/workspace-hosting';
 export function register(api: PluginApi) { registerHosting(api, provider); }
 ```
 

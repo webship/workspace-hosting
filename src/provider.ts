@@ -8,7 +8,7 @@
  * facts and the commands. Upsun is the reference implementation.
  */
 
-import type { PluginLib } from '@webship/workspace-plugin-api';
+import type { PluginLib } from '@webship.co/workspace-plugin-api';
 
 /** A project's link to the host: what the provider's CLI or config says it is. */
 export interface HostingLink {
