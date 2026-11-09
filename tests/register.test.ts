@@ -7,11 +7,13 @@ import path from 'path';
 import { registerHosting } from '../src/index';
 import type { HostingProvider } from '../src/index';
 
-function fakeApi(root: string) {
+function fakeApi(root: string, capabilities?: string[]) {
   const calls: Record<string, any> = { rowMenus: {}, chips: [], actions: {}, fragments: [], pages: [], setups: [], css: [] as string[] };
   const api: any = {
     name: 'acme',
     config: {},
+    // A dashboard since 1.0.0-rc2 says what it can do; an older one has no `capabilities` at all.
+    ...(capabilities ? { capabilities: new Set(capabilities) } : {}),
     settings: { file: 'plugin.acme.settings.yml', read: () => ({}), set() {}, setList() {} },
     lib: {
       esc: (s: unknown) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string)),
@@ -93,6 +95,42 @@ test('an unlinked project gets the menu with the link step; a linked one gets en
   assert.match(linked, /https:\/\/console\.acme\.test\/app-1/);
   assert.match(linked, /Deploying stays on the command line/);
   assert.strictEqual(li.calls.rowMenus.acme.fn({ ...row(root), allowed: new Set() }), null, 'a type that does not allow it gets nothing');
+});
+
+test('on a dashboard that loads menu bodies when they open, the row carries the button and the caption and the body is a fragment', async () => {
+  const root = tree();
+  const un = fakeApi(root, ['row-menu-body']); registerHosting(un.api, provider(false));
+  const unlinked = un.calls.rowMenus.acme.fn(row(root));
+  assert.strictEqual(typeof unlinked, 'object', 'the lazy form, not HTML');
+  assert.match(unlinked.html, /^<button class="uk-button uk-button-default uk-button-small hosting-unlinked"/);
+  assert.strictEqual(unlinked.body, '/fragments/p/acme/menu/dev/site1');
+  assert.strictEqual(unlinked.caption, 'not linked');
+  assert.strictEqual(unlinked.classes, 'act-menu-hosting');
+  assert.doesNotMatch(unlinked.html, /uk-dropdown|Link it from/, 'the row carries no menu body');
+  let out = ''; let status = 200;
+  const send = (h: string, s = 200) => { out = h; status = s; };
+  await un.calls.fragments[0]({ send, rest: 'menu/dev/site1' });
+  assert.strictEqual(status, 200);
+  assert.match(out, /^<ul class="uk-nav uk-dropdown-nav">/);
+  assert.match(out, /Not linked to Acme Cloud/);
+  assert.match(out, /bash cmd-tools-acme\.sh site1 --link &lt;id&gt;/, 'the link step is in the body');
+  const li = fakeApi(root, ['row-menu-body']); registerHosting(li.api, provider(true));
+  const linked = li.calls.rowMenus.acme.fn(row(root));
+  assert.strictEqual(linked.caption, 'linked');
+  assert.doesNotMatch(linked.html, /hosting-unlinked/);
+  await li.calls.fragments[0]({ send, rest: 'menu/dev/site1' });
+  assert.match(out, /app-1/);
+  assert.match(out, /\/actions\/p\/acme\/envs/);
+  assert.match(out, /\/actions\/p\/acme\/tool-logs"[^>]*hx-vals='\{"workspace":"dev","projectName":"site1"\}'/, 'the items name the row themselves, since no row context is at hand');
+  assert.match(out, /Get database &amp; files/);
+  assert.match(out, /https:\/\/console\.acme\.test\/app-1/);
+  assert.match(out, /Deploying stays on the command line/);
+  await li.calls.fragments[0]({ send, rest: 'menu/dev/nope' });
+  assert.strictEqual(status, 404, 'a project that is not there has no menu');
+  await li.calls.fragments[0]({ send, rest: 'menu/bad ws/site1' });
+  assert.strictEqual(status, 404);
+  assert.strictEqual(li.calls.rowMenus.acme.fn({ ...row(root), allowed: new Set() }), null, 'a type that does not allow it still gets nothing');
+  assert.strictEqual(li.calls.fragments.length, 1, 'one fragment handler serves the menu body and the environments list');
 });
 
 test('the environments fragment and the site jump come from the provider, and a missing token is said', async () => {

@@ -9,7 +9,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import type { ActionContext, FolderSetupContext, Form, PluginApi, RowContext } from '@webship.co/workspace-plugin-api';
+import type { ActionContext, FolderSetupContext, Form, Html, PluginApi, RowContext } from '@webship.co/workspace-plugin-api';
 
 import type { EnvInfo, HostingLink, HostingProvider } from './provider';
 
@@ -68,31 +68,34 @@ export function registerHosting(api: PluginApi, p: HostingProvider): void {
   }
 
   // ---- The menu on a project row ---------------------------------------------------------------
+  //
+  // The row carries the button and its caption; the dropdown's body is a fragment fetched when the
+  // menu opens (menu/<ws>/<project>), so a page of fifty rows with seven providers carries 350
+  // buttons and not 350 menus. A dashboard older than that form (no `row-menu-body` capability)
+  // still gets the whole menu inline.
 
-  api.addRowMenu(p.id, { label: p.label, row: 0 }, ({ key, project, dir, allowed, vals }: RowContext) => {
-    if (!can(allowed, dir)) return null;
-    const u = linkOf(dir, project);
-    const caption = !u ? 'not linked' : 'linked';
+  const capabilities = (api as PluginApi & { capabilities?: ReadonlySet<string> }).capabilities;
+  const lazy = !!(capabilities && capabilities.has('row-menu-body'));
+  const rowVals = (key: string, project: string) => (extra = '') =>
+    `hx-vals='{"workspace":"${esc(key)}","projectName":"${esc(project)}"${extra}}' hx-target="#webship-workspace-output" hx-swap="innerHTML"`;
+
+  /** The dropdown's inner HTML: the unlinked state's link step, or the linked project's menu. */
+  function menuBody(key: string, project: string, u: HostingLink | null, vals: (extra?: string) => string): Html {
     const status = p.tools.status;
     if (!u) {
-      return `<span class="act-with-status"><div class="uk-inline act-menu act-menu-${esc(p.id)} act-menu-hosting">
-          <button class="uk-button uk-button-default uk-button-small hosting-unlinked" type="button" title="Not linked to ${esc(p.title)}"><span uk-icon="icon: cloud-upload; ratio: .7"></span> ${esc(p.label)} <span uk-icon="icon: chevron-down; ratio: .6"></span></button>
-          <div uk-dropdown="mode: click; pos: bottom-right"><ul class="uk-nav uk-dropdown-nav">
+      return `<ul class="uk-nav uk-dropdown-nav">
             <li class="uk-nav-header">Not linked to ${esc(p.title)}</li>
             ${status ? `<li><a href hx-post="${post('tool-status')}" ${vals()}><span uk-icon="icon: info; ratio: .7"></span> ${esc(status.label)}</a></li>` : ''}
             <li class="uk-nav-divider"></li>
             <li class="uk-nav-header hosting-menu-note" data-group="how to link">Link it from ${esc(key)}:<br><code>${esc(p.linkHint(project))}</code></li>
-          </ul></div>
-        </div><span class="act-status uk-text-meta">${esc(caption)}</span></span>`;
+          </ul>`;
     }
     const idLine = `${esc(u.id || '(no id)')}${u.branch ? ` · <span title="the branch the local code is on">${esc(u.branch)}</span>` : ''}`
       + `${u.mismatch ? ` <span class="uk-label uk-label-danger hosting-mismatch" title="${esc(u.mismatchNote || 'the link and the git remote disagree')}">mismatch</span>` : ''}`;
     const toolItems = Object.entries(p.tools).filter(([k]) => k !== 'status').map(([k, t]) =>
       `<li><a href hx-post="${post(`tool-${k}`)}" ${vals()}><span uk-icon="icon: ${esc(t.icon)}; ratio: .7"></span> ${esc(t.label)}</a></li>`).join('');
     const console = p.consoleUrl ? p.consoleUrl(u) : null;
-    return `<span class="act-with-status"><div class="uk-inline act-menu act-menu-${esc(p.id)} act-menu-hosting">
-        <button class="uk-button uk-button-default uk-button-small" type="button" title="${esc(p.label)}"><span uk-icon="icon: cloud-upload; ratio: .7"></span> ${esc(p.label)} <span uk-icon="icon: chevron-down; ratio: .6"></span></button>
-        <div uk-dropdown="mode: click; pos: bottom-right"><ul class="uk-nav uk-dropdown-nav">
+    return `<ul class="uk-nav uk-dropdown-nav">
           <li class="uk-nav-header hosting-menu-id" data-group="link">${idLine}</li>
           ${p.environments ? `<li><a href hx-post="${post('envs')}" hx-vals='{"workspace":"${esc(key)}","projectName":"${esc(project)}"}' hx-target="#editor-modal-body" hx-swap="innerHTML"><span uk-icon="icon: world; ratio: .7"></span> Environments and live sites</a></li>
           <li class="uk-nav-header" data-group="live sites">Live sites</li>
@@ -104,7 +107,27 @@ export function registerHosting(api: PluginApi, p: HostingProvider): void {
           <li><a href hx-post="${post('environments')}" ${vals()}><span uk-icon="icon: git-branch; ratio: .7"></span> Branch and data…${u.env ? ` <span class="uk-text-meta">(${esc(u.env)})</span>` : ''}</a></li>` : ''}
           ${console ? `<li class="uk-nav-divider"></li><li><a href="${esc(console)}" target="_blank"><span uk-icon="icon: link-external; ratio: .7"></span> Open in the ${esc(p.title)} console</a></li>` : ''}
           ${p.menuNote ? `<li class="uk-nav-header hosting-menu-note">${esc(p.menuNote)}</li>` : ''}
-        </ul></div>
+        </ul>`;
+  }
+
+  /** The button that opens the menu, in the linked or the unlinked state. */
+  const menuButton = (u: HostingLink | null): Html => (u
+    ? `<button class="uk-button uk-button-default uk-button-small" type="button" title="${esc(p.label)}"><span uk-icon="icon: cloud-upload; ratio: .7"></span> ${esc(p.label)} <span uk-icon="icon: chevron-down; ratio: .6"></span></button>`
+    : `<button class="uk-button uk-button-default uk-button-small hosting-unlinked" type="button" title="Not linked to ${esc(p.title)}"><span uk-icon="icon: cloud-upload; ratio: .7"></span> ${esc(p.label)} <span uk-icon="icon: chevron-down; ratio: .6"></span></button>`);
+
+  // The rc1 types say a row menu answers HTML; the dashboard since 1.0.0-rc2 (and the rc2 types) also
+  // take `{ html, body, caption, classes }`. The cast lets this base compile against either.
+  type RowMenuFn = (ctx: RowContext) => Html | { html: Html; body: string; caption?: string; classes?: string } | null;
+  (api.addRowMenu as (slot: string, spec: { label: string; row?: 0 | 1 }, fn: RowMenuFn) => void)(p.id, { label: p.label, row: 0 }, ({ key, project, dir, allowed, vals }: RowContext) => {
+    if (!can(allowed, dir)) return null;
+    const u = linkOf(dir, project);
+    const caption = !u ? 'not linked' : 'linked';
+    if (lazy) {
+      return { html: menuButton(u), body: fragment(`menu/${encodeURIComponent(key)}/${encodeURIComponent(project)}`), caption, classes: 'act-menu-hosting' };
+    }
+    return `<span class="act-with-status"><div class="uk-inline act-menu act-menu-${esc(p.id)} act-menu-hosting">
+        ${menuButton(u)}
+        <div uk-dropdown="mode: click; pos: bottom-right">${menuBody(key, project, u, vals)}</div>
       </div><span class="act-status uk-text-meta">${esc(caption)}</span></span>`;
   });
 
@@ -164,6 +187,17 @@ export function registerHosting(api: PluginApi, p: HostingProvider): void {
   });
 
   api.addFragment(async ({ send, rest }) => {
+    // The row menu's body, asked for as the menu opens (see the row menu above).
+    const menu = rest.match(/^menu\/([a-z0-9_-]+)\/([a-zA-Z0-9_-]+)$/);
+    if (menu) {
+      const [, key, project] = menu;
+      const dir = isValidWorkspace(key) ? workspaceDir(key) : '';
+      const allows = !api.lib.typeAllows || api.lib.typeAllows(key, typeAction);
+      if (!dir || !allows || !fs.existsSync(path.join(dir, p.script)) || !NAME_RE.test(project) || !fs.existsSync(path.join(dir, project))) {
+        return send(`<ul class="uk-nav uk-dropdown-nav"><li class="uk-nav-header">No ${esc(p.title)} menu for this project.</li></ul>`, 404);
+      }
+      return send(menuBody(key, project, linkOf(dir, project), rowVals(key, project)));
+    }
     const m = rest.match(/^envs\/([a-z0-9_-]+)\/([a-zA-Z0-9_-]+)$/);
     if (!m || !isValidWorkspace(m[1])) return send('', 404);
     const info = await environments(workspaceDir(m[1]), m[2]);
