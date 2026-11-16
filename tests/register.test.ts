@@ -4,7 +4,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 
-import { registerHosting } from '../src/index';
+import { registerHosting, PROVIDER_ICONS, providerIcon } from '../src/index';
 import type { HostingProvider } from '../src/index';
 
 function fakeApi(root: string, capabilities?: string[]) {
@@ -201,4 +201,29 @@ test('findCli looks in the host mount, ~/.local/bin and PATH; configured() refus
   assert.strictEqual(findCli('acme', [path.join(dir, 'acme')]), path.join(dir, 'acme'));
   assert.strictEqual(configured('CHANGE_ME'), null);
   assert.strictEqual(configured(' tok '), 'tok');
+});
+
+test('each of the seven providers carries its own icon on the row and on its chip, and a provider may name its own', async () => {
+  // Seven identical clouds on one row could only be told apart by hovering each one.
+  const seven = ['upsun', 'acquia', 'digitalocean', 'cpanel', 'aws', 'azure', 'godaddy'];
+  const icons = seven.map((id) => providerIcon({ id }));
+  assert.strictEqual(new Set(icons).size, 7, `seven different icons: ${icons.join(', ')}`);
+  assert.ok(icons.every((i) => /^tabler:[a-z0-9-]+$/.test(i)), 'Tabler ids, drawn by the dashboard\'s iconHtml');
+  assert.ok(!icons.includes('tabler:cloud-upload'), 'none of them is the shared cloud any more');
+  assert.deepStrictEqual(Object.keys(PROVIDER_ICONS).sort(), [...seven].sort());
+  // Any other provider keeps the cloud, and a provider's own icon wins over the family's.
+  assert.strictEqual(providerIcon({ id: 'acme' }), 'tabler:cloud-upload');
+  assert.strictEqual(providerIcon({ id: 'upsun', icon: 'tabler:rocket' }), 'tabler:rocket');
+
+  // The button (both states, eager and lazy) and the live-site chip draw it.
+  const root = tree();
+  const un = fakeApi(root); registerHosting(un.api, { ...provider(false), icon: 'tabler:rocket' });
+  assert.match(un.calls.rowMenus.acme.fn(row(root)), /hosting-unlinked" type="button" title="Not linked to Acme Cloud"><i data-icon="tabler:rocket"><\/i> ACME/);
+  const lazy = fakeApi(root, ['row-menu-body']); registerHosting(lazy.api, { ...provider(true), icon: 'tabler:rocket' });
+  assert.match(lazy.calls.rowMenus.acme.fn(row(root)).html, /title="ACME"><i data-icon="tabler:rocket"><\/i> ACME/);
+  const chip = lazy.calls.chips[0]({ key: 'dev', project: 'site1', dir: path.join(root, 'dev') });
+  assert.match(chip, /<i data-icon="tabler:rocket"><\/i><span class="pcard-chip-text">main<\/span>/);
+  const plain = fakeApi(root); registerHosting(plain.api, provider(false));
+  assert.match(plain.calls.rowMenus.acme.fn(row(root)), /<i data-icon="tabler:cloud-upload"><\/i> ACME/, 'an unknown provider keeps the cloud');
+  assert.doesNotMatch(plain.calls.rowMenus.acme.fn(row(root)), /uk-icon="icon: cloud-upload/);
 });
