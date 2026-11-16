@@ -18,6 +18,27 @@ export * from './cli';
 
 const registeredCss = new WeakSet<object>();
 
+/**
+ * A different icon for each provider the family ships, so their buttons on a row can be told apart without
+ * hovering each one: the same cloud seven times was the row's only picture of seven different hosts. Each
+ * says what the host is, not whose it is (no logos): a stack for a platform of environments, a droplet,
+ * the sea, a control panel, a beanstalk, an app window, the web's own address.
+ */
+export const PROVIDER_ICONS: Readonly<Record<string, string>> = Object.freeze({
+  upsun: 'tabler:stack-2',
+  acquia: 'tabler:droplet',
+  digitalocean: 'tabler:ripple',
+  cpanel: 'tabler:layout-dashboard',
+  aws: 'tabler:plant',
+  azure: 'tabler:app-window',
+  godaddy: 'tabler:world-www',
+});
+
+/** The icon a provider's button and chip carry: its own, the family's for it, or the cloud. */
+export function providerIcon(p: Pick<HostingProvider, 'id' | 'icon'>): string {
+  return p.icon || PROVIDER_ICONS[p.id] || 'tabler:cloud-upload';
+}
+
 export function registerHosting(api: PluginApi, p: HostingProvider): void {
   const { esc, workspaceDir, listProjects, isValidWorkspace, screenAction, iconHtml, NAME_RE, ROOT, run, startInScreen, screenStartedHtml, cliError, commandBlock } = api.lib;
   const post = (name: string) => `/actions/p/${api.name}/${name}`;
@@ -110,10 +131,11 @@ export function registerHosting(api: PluginApi, p: HostingProvider): void {
         </ul>`;
   }
 
-  /** The button that opens the menu, in the linked or the unlinked state. */
+  /** The button that opens the menu, in the linked or the unlinked state, with this provider's own icon. */
+  const icon = iconHtml(providerIcon(p), 0.7);
   const menuButton = (u: HostingLink | null): Html => (u
-    ? `<button class="uk-button uk-button-default uk-button-small" type="button" title="${esc(p.label)}"><span uk-icon="icon: cloud-upload; ratio: .7"></span> ${esc(p.label)} <span uk-icon="icon: chevron-down; ratio: .6"></span></button>`
-    : `<button class="uk-button uk-button-default uk-button-small hosting-unlinked" type="button" title="Not linked to ${esc(p.title)}"><span uk-icon="icon: cloud-upload; ratio: .7"></span> ${esc(p.label)} <span uk-icon="icon: chevron-down; ratio: .6"></span></button>`);
+    ? `<button class="uk-button uk-button-default uk-button-small" type="button" title="${esc(p.label)}">${icon} ${esc(p.label)} <span uk-icon="icon: chevron-down; ratio: .6"></span></button>`
+    : `<button class="uk-button uk-button-default uk-button-small hosting-unlinked" type="button" title="Not linked to ${esc(p.title)}">${icon} ${esc(p.label)} <span uk-icon="icon: chevron-down; ratio: .6"></span></button>`);
 
   // The rc1 types say a row menu answers HTML; the dashboard since 1.0.0-rc2 (and the rc2 types) also
   // take `{ html, body, caption, classes }`. The cast lets this base compile against either.
@@ -137,7 +159,7 @@ export function registerHosting(api: PluginApi, p: HostingProvider): void {
     const u = linkOf(dir, project);
     if (!u || !p.environments) return null;
     return `<a class="proj-alias proj-plugin-link proj-hosting-link proj-${esc(p.id)}-link" href="/${encodeURIComponent(p.id)}-site/${encodeURIComponent(key)}/${encodeURIComponent(project)}" target="_blank" rel="noopener"
-      title="The live ${esc(p.title)} site for the environment this code is on">${iconHtml('tabler:cloud-upload', 0.7)}<span class="pcard-chip-text">${esc(u.branch || u.env || u.id || p.title)}</span></a>`;
+      title="The live ${esc(p.title)} site for the environment this code is on">${icon}<span class="pcard-chip-text">${esc(u.branch || u.env || u.id || p.title)}</span></a>`;
   });
 
   // ---- Tool verbs: the per-workspace command, run as a screen session ---------------------------

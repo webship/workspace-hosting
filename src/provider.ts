@@ -75,6 +75,12 @@ export interface HostingProvider {
   label: string;
   /** The product's name in sentences: 'Upsun'. */
   title: string;
+  /**
+   * The icon of its button on a project row and of its live-site chip: a Tabler icon id ('tabler:stack-2').
+   * Omitted: the base's own for a provider it knows (PROVIDER_ICONS), else 'tabler:cloud-upload'. Seven
+   * providers on a row used to carry the same cloud, which only a hover could tell apart.
+   */
+  icon?: string;
   /** The CLI the actions run inside the dashboard container, when there is one. */
   cli?: string;
   /** The per-workspace command the plugin installs: 'cmd-tools-upsun.sh'. */
