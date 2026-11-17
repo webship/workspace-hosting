@@ -12,6 +12,7 @@ import path from 'path';
 import type { ActionContext, FolderSetupContext, Form, Html, PluginApi, RowContext } from '@webship.co/workspace-plugin-api';
 
 import type { EnvInfo, HostingLink, HostingProvider } from './provider';
+import { findCli } from './cli';
 
 export * from './provider';
 export * from './cli';
@@ -79,6 +80,9 @@ export function registerHosting(api: PluginApi, p: HostingProvider): void {
     if (!p.environments) return { id: u.id, rows: [], branch: u.branch, env: u.env, why: 'no list' };
     const env = p.jobEnv();
     if (!env) return { id: u.id, rows: [], branch: u.branch, env: u.env, why: 'no token' };
+    // The list comes from the provider's CLI where the dashboard runs: without it, say so rather than
+    // "list failed", which is all a person with a token and no CLI was told (#11).
+    if (p.cli && !findCli(p.cli)) return { id: u.id, rows: [], branch: u.branch, env: u.env, why: `the ${p.cli} CLI is not installed where the dashboard runs` };
     let info: EnvInfo;
     try { info = await p.environments(u, api.lib, env); } catch (_) { info = { id: u.id, rows: [], why: 'list failed' }; }
     const answer: EnvInfo = { ...info, branch: u.branch, env: u.env };
@@ -230,7 +234,8 @@ export function registerHosting(api: PluginApi, p: HostingProvider): void {
         ? `<li><a href="${esc(r.url)}" target="_blank" title="${esc(r.url)}"><span uk-icon="icon: link-external; ratio: .7"></span> ${esc(r.title)}${here ? ' <span class="uk-text-meta">(this code)</span>' : ''}</a></li>`
         : `<li><span class="uk-text-meta"><span uk-icon="icon: ban; ratio: .7"></span> ${esc(r.title)} — ${esc((r.status || '').toLowerCase())}</span></li>`;
     }).join('');
-    send(items || `<li class="uk-nav-header">${info && info.why === 'no token' ? `No ${esc(p.title)} API token (${esc(p.tokenHint)})` : 'No environments'}</li>`);
+    send(items || `<li class="uk-nav-header">${info && info.why === 'no token' ? `No ${esc(p.title)} API token (${esc(p.tokenHint)})`
+      : info && info.why && info.why !== 'list failed' ? `No environments: ${esc(info.why)}` : 'No environments'}</li>`);
   });
 
   api.addPage(new RegExp(`^\\/${p.id}-site\\/([a-z0-9_-]+)\\/([a-zA-Z0-9_-]+)$`), async ({ res, match }) => {

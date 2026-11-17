@@ -227,3 +227,31 @@ test('each of the seven providers carries its own icon on the row and on its chi
   assert.match(plain.calls.rowMenus.acme.fn(row(root)), /<i data-icon="tabler:cloud-upload"><\/i> ACME/, 'an unknown provider keeps the cloud');
   assert.doesNotMatch(plain.calls.rowMenus.acme.fn(row(root)), /uk-icon="icon: cloud-upload/);
 });
+
+test('with a token and no CLI, the environments say the CLI is missing, not "list failed"', async () => {
+  // findCli looks in /host-local-bin, ~/.local/bin and PATH: none of them has this name.
+  const missing = 'acme-cli-that-is-not-installed';
+  const root = tree();
+  const { api, calls } = fakeApi(root);
+  registerHosting(api, { ...provider(true), cli: missing, environments: async () => { throw new Error('must not be asked'); } });
+  const why = `the ${missing} CLI is not installed where the dashboard runs`;
+  let modal = '';
+  await calls.actions.envs({ form: { projectName: 'site1' }, workspace: 'dev', send: (h: string) => { modal = h; } });
+  assert.match(modal, new RegExp(`No environments \\(${why}\\)\\.`));
+  let list = '';
+  await calls.fragments[0]({ send: (h: string) => { list = h; }, rest: 'envs/dev/site1' });
+  assert.match(list, new RegExp(`No environments: ${why}`));
+  let form = '';
+  await calls.actions['pull-form']({ form: { projectName: 'site1' }, workspace: 'dev', send: (h: string) => { form = h; } });
+  assert.match(form, new RegExp(why));
+  let page = ''; let status = 0;
+  await calls.pages[0].fn({ match: ['', 'dev', 'site1'], res: { writeHead: (s: number) => { status = s; }, end: (b: string) => { page = b; } } });
+  assert.strictEqual(status, 404);
+  assert.match(page, new RegExp(`No live Acme Cloud URL for site1 \\(${why}\\)`));
+  // A provider that names no CLI is asked as before.
+  const plain = fakeApi(root);
+  registerHosting(plain.api, provider(true));
+  let listed = '';
+  await plain.calls.fragments[0]({ send: (h: string) => { listed = h; }, rest: 'envs/dev/site1' });
+  assert.match(listed, /Staging/);
+});
